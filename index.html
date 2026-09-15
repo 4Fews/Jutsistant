@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Semesta</title>
+    <meta name="description" content="Mata kuliah, tugas, dan deadline dalam satu tempat. Semua data tersimpan di perangkat Anda." />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Semesta" />
+    <meta id="theme-color" name="theme-color" content="#FBF7F2" />
+    <script>
+      // Terapkan tema sebelum React mount agar tidak ada kedip putih saat dark mode.
+      try {
+        var t = localStorage.getItem('semesta.theme') || 'sistem'
+        var dark = t === 'gelap' || (t === 'sistem' && matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('dark', dark)
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
