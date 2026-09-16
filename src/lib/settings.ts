@@ -9,10 +9,19 @@ export interface Settings {
   lastSyncAt: number | null
   /** migrasi data lokal ke cloud sudah pernah ditawarkan/selesai untuk user ini */
   migratedUserId: string | null
+  /** akun yang terakhir masuk di perangkat ini — dipakai sebagai jaring
+   *  pengaman supaya pengguna tidak terkunci dari cache-nya sendiri saat offline */
+  lastUserId: string | null
 }
 
 const KEY = 'semesta.settings'
-const DEFAULTS: Settings = { lastBackupAt: null, seeded: false, lastSyncAt: null, migratedUserId: null }
+const DEFAULTS: Settings = {
+  lastBackupAt: null,
+  seeded: false,
+  lastSyncAt: null,
+  migratedUserId: null,
+  lastUserId: null,
+}
 
 function read(): Settings {
   try {

@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { createHashRouter, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
+import { RequireAuth } from '@/app/RequireAuth'
 import { TasksPage } from '@/pages/TasksPage'
 import { CoursesPage } from '@/pages/CoursesPage'
 import { CourseDetailPage } from '@/pages/CourseDetailPage'
@@ -21,9 +22,16 @@ function EditorFallback() {
 // HashRouter dipakai supaya build yang sama jalan di Cloudflare Pages
 // maupun GitHub Pages tanpa konfigurasi fallback SPA di sisi server.
 export const router = createHashRouter([
+  // Halaman masuk sengaja di luar AppShell: tanpa bottom nav/sidebar, supaya
+  // tidak ada jalan memutar ke dalam aplikasi sebelum benar-benar masuk.
+  { path: '/masuk', element: <LoginPage /> },
   {
     path: '/',
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <Navigate to="/tugas" replace /> },
       { path: 'tugas', element: <TasksPage /> },
@@ -39,7 +47,6 @@ export const router = createHashRouter([
       { path: 'mata-kuliah', element: <CoursesPage /> },
       { path: 'mata-kuliah/:id', element: <CourseDetailPage /> },
       { path: 'pengaturan', element: <SettingsPage /> },
-      { path: 'masuk', element: <LoginPage /> },
       { path: '*', element: <Navigate to="/tugas" replace /> },
     ],
   },

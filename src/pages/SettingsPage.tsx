@@ -373,6 +373,9 @@ export function SettingsPage() {
         )}
       </Section>
 
+      {/* Data contoh tidak punya tempat saat sinkronisasi aktif — isinya akan
+          bercampur dengan data asli dari akun. */}
+      {!isCloudConfigured && (
       <Section title="Data contoh">
         <Card>
           <div className="flex items-start gap-3">
@@ -406,6 +409,7 @@ export function SettingsPage() {
           </div>
         </Card>
       </Section>
+      )}
 
       <Section title="Zona berbahaya">
         <div className="rounded-card border border-late/35 bg-late-soft p-4">

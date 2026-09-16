@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { isCloudConfigured, supabase } from './supabaseClient'
+import { updateSettings } from './settings'
 
 export type AuthStatus = 'unconfigured' | 'loading' | 'signed-out' | 'signed-in'
 
@@ -35,16 +36,21 @@ export function initAuth(): void {
       session: data.session,
       user: data.session?.user ?? null,
     })
+    if (data.session?.user) updateSettings({ lastUserId: data.session.user.id })
   })
 
   // Menangkap login, logout, dan refresh token otomatis — termasuk yang
   // terjadi di tab lain pada perangkat yang sama.
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
     setState({
       status: session ? 'signed-in' : 'signed-out',
       session,
       user: session?.user ?? null,
     })
+    // Keluar secara sengaja mencabut jaring pengaman offline; sesi yang
+    // sekadar kedaluwarsa tidak.
+    if (event === 'SIGNED_OUT') updateSettings({ lastUserId: null })
+    else if (session?.user) updateSettings({ lastUserId: session.user.id })
   })
 }
 

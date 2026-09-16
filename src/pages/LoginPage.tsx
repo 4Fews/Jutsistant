@@ -21,7 +21,7 @@ export function LoginPage() {
 
   // sudah login (mis. buka /masuk lewat URL langsung) → tidak perlu di sini
   useEffect(() => {
-    if (auth.status === 'signed-in') navigate('/pengaturan', { replace: true })
+    if (auth.status === 'signed-in') navigate('/tugas', { replace: true })
   }, [auth.status, navigate])
 
   async function submit(e: FormEvent) {
@@ -39,7 +39,7 @@ export function LoginPage() {
       return
     }
     toast('Berhasil masuk')
-    navigate('/pengaturan', { replace: true })
+    navigate('/tugas', { replace: true })
   }
 
   return (

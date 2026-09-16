@@ -2,6 +2,7 @@ import { addDays, endOfDay, set as setTime, startOfDay } from 'date-fns'
 import { db } from './db'
 import { DEMO_PREFIX } from './id'
 import { getSettings, updateSettings } from './settings'
+import { isCloudConfigured } from './supabaseClient'
 import type { Course, Task } from '@/types'
 
 /**
@@ -202,8 +203,13 @@ export async function clearDemoData(): Promise<void> {
  * Dipanggil sekali saat app mulai. Hanya mengisi kalau database benar-benar
  * kosong DAN data contoh belum pernah dibuat — jadi setelah Anda menghapusnya,
  * ia tidak akan muncul kembali.
+ *
+ * Dilewati sepenuhnya kalau sinkronisasi cloud aktif: di sana aplikasi selalu
+ * dibuka lewat login dan isinya datang dari akun, jadi data contoh hanya akan
+ * bercampur dengan data asli yang ditarik dari cloud.
  */
 export async function seedIfFirstRun(): Promise<void> {
+  if (isCloudConfigured) return
   if (getSettings().seeded) return
   const [courses, tasks] = await Promise.all([db.courses.count(), db.tasks.count()])
   if (courses > 0 || tasks > 0) {

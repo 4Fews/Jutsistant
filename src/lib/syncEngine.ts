@@ -5,6 +5,7 @@ import { isCloudConfigured, supabase } from './supabaseClient'
 import { getSettings, updateSettings } from './settings'
 import { getTheme, setTheme } from './theme'
 import { isDemo } from './id'
+import { clearDemoData, hasDemoData } from './seed'
 import {
   attachmentFromCloud,
   attachmentToCloud,
@@ -310,6 +311,11 @@ export async function runSync(): Promise<void> {
   syncing = true
   setState({ status: 'syncing' })
   try {
+    // Data contoh tidak pernah jadi milik akun mana pun. Kalau perangkat ini
+    // sempat terisi data contoh sebelum login (versi lama aplikasi), bersihkan
+    // di sini supaya tidak tercampur dengan data asli yang ditarik dari cloud.
+    if (await hasDemoData()) await clearDemoData()
+
     const cursor = getSettings().lastSyncAt
     const sinceIso = cursor ? new Date(cursor).toISOString() : null
     let maxSeen = cursor ?? 0
