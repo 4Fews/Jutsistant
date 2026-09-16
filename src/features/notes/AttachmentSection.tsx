@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, Image as ImageIcon, Paperclip, Plus } from 'lucide-react'
+import { CloudDownload, FileText, Image as ImageIcon, Paperclip, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { AttachmentPreview } from './AttachmentPreview'
@@ -12,22 +12,29 @@ import {
   kindOf,
   typeLabel,
 } from '@/lib/attachments'
+import { needsDownload } from '@/lib/cloudTypes'
 import { fmtDate } from '@/lib/date'
 import { cn } from '@/lib/cn'
 import type { Attachment } from '@/types'
 
-/** Object URL untuk thumbnail gambar, dibuat ulang tiap daftar berubah. */
+/**
+ * Object URL untuk thumbnail gambar, dibuat ulang tiap daftar berubah.
+ * File yang isinya belum diunduh dari cloud (placeholder) dilewati —
+ * blob-nya kosong, jadi tidak ada yang bisa ditampilkan sampai dibuka.
+ */
 function useThumbnails(attachments: Attachment[]): Map<string, string> {
   const [urls, setUrls] = useState<Map<string, string>>(new Map())
   const ids = attachments
-    .filter((a) => kindOf(a.mime, a.name) === 'gambar')
+    .filter((a) => kindOf(a.mime, a.name) === 'gambar' && !needsDownload(a))
     .map((a) => a.id)
     .join(',')
 
   useEffect(() => {
     const map = new Map<string, string>()
     for (const a of attachments) {
-      if (kindOf(a.mime, a.name) === 'gambar') map.set(a.id, URL.createObjectURL(a.blob))
+      if (kindOf(a.mime, a.name) === 'gambar' && !needsDownload(a)) {
+        map.set(a.id, URL.createObjectURL(a.blob))
+      }
     }
     setUrls(map)
     return () => {
@@ -114,6 +121,8 @@ export function AttachmentSection({ noteId }: { noteId: string }) {
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-2">
                     {thumb ? (
                       <img src={thumb} alt="" className="h-full w-full object-cover" />
+                    ) : needsDownload(a) ? (
+                      <CloudDownload size={18} className="text-ink-3" aria-hidden="true" />
                     ) : kind === 'gambar' ? (
                       <ImageIcon size={18} className="text-ink-3" aria-hidden="true" />
                     ) : (
@@ -124,6 +133,7 @@ export function AttachmentSection({ noteId }: { noteId: string }) {
                     <span className="block truncate font-semibold">{a.name}</span>
                     <span className="block truncate text-[12px] text-ink-3 tnum">
                       {typeLabel(a.mime, a.name)} · {formatBytes(a.size)} · {fmtDate(a.createdAt)}
+                      {needsDownload(a) && ' · Dari perangkat lain'}
                     </span>
                   </span>
                 </button>

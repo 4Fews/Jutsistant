@@ -6,6 +6,7 @@ import { CoursesPage } from '@/pages/CoursesPage'
 import { CourseDetailPage } from '@/pages/CourseDetailPage'
 import { NotesPage } from '@/pages/NotesPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { LoginPage } from '@/pages/LoginPage'
 
 // Editor catatan memuat TipTap yang cukup besar, jadi dipisah dari
 // bundel utama dan baru diunduh saat sebuah catatan dibuka.
@@ -38,6 +39,7 @@ export const router = createHashRouter([
       { path: 'mata-kuliah', element: <CoursesPage /> },
       { path: 'mata-kuliah/:id', element: <CourseDetailPage /> },
       { path: 'pengaturan', element: <SettingsPage /> },
+      { path: 'masuk', element: <LoginPage /> },
       { path: '*', element: <Navigate to="/tugas" replace /> },
     ],
   },

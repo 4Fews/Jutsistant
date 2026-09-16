@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Download, FileText, Trash2 } from 'lucide-react'
+import { CloudDownload, Download, FileText, Trash2 } from 'lucide-react'
 import { Sheet } from '@/components/ui/Sheet'
 import { Button } from '@/components/ui/Button'
 import { Field, TextInput } from '@/components/ui/Field'
@@ -7,6 +7,8 @@ import { toast } from '@/components/ui/Toast'
 import { confirmDialog } from '@/components/ui/Confirm'
 import { deleteAttachment, renameAttachment, restoreAttachment } from '@/lib/repo'
 import { downloadBlob, formatBytes, kindOf, typeLabel } from '@/lib/attachments'
+import { needsDownload } from '@/lib/cloudTypes'
+import { downloadAttachmentBlob } from '@/lib/syncEngine'
 import { fmtDate } from '@/lib/date'
 import type { Attachment } from '@/types'
 
@@ -22,15 +24,28 @@ interface Props {
 export function AttachmentPreview({ attachment, onClose }: Props) {
   const [url, setUrl] = useState<string | null>(null)
   const [name, setName] = useState('')
+  const [downloading, setDownloading] = useState(false)
 
   // Object URL dibuat saat sheet dibuka dan selalu dilepas saat ditutup,
-  // supaya Blob tidak menahan memori.
+  // supaya Blob tidak menahan memori. Kalau blob-nya masih placeholder
+  // (file ini ditarik dari perangkat lain lewat sync, isinya belum
+  // diunduh), ambil dulu dari Supabase Storage — hasilnya otomatis
+  // tampil di sini karena attachment berasal dari useLiveQuery di parent.
   useEffect(() => {
     if (!attachment) {
       setUrl(null)
       return
     }
     setName(attachment.name)
+
+    if (needsDownload(attachment)) {
+      setDownloading(true)
+      downloadAttachmentBlob(attachment)
+        .catch(() => toast('Gagal mengunduh file dari cloud. Coba lagi.'))
+        .finally(() => setDownloading(false))
+      return
+    }
+
     const u = URL.createObjectURL(attachment.blob)
     setUrl(u)
     return () => URL.revokeObjectURL(u)
@@ -39,6 +54,23 @@ export function AttachmentPreview({ attachment, onClose }: Props) {
   if (!attachment) return <Sheet open={false} onClose={onClose} title="" children={null} />
 
   const kind = kindOf(attachment.mime, attachment.name)
+
+  async function handleDownload() {
+    if (!attachment) return
+    if (needsDownload(attachment)) {
+      setDownloading(true)
+      try {
+        const blob = await downloadAttachmentBlob(attachment)
+        downloadBlob(blob, attachment.name)
+      } catch {
+        toast('Gagal mengunduh file dari cloud.')
+      } finally {
+        setDownloading(false)
+      }
+      return
+    }
+    downloadBlob(attachment.blob, attachment.name)
+  }
 
   async function save() {
     if (!attachment) return
@@ -79,19 +111,23 @@ export function AttachmentPreview({ attachment, onClose }: Props) {
             <Trash2 size={16} aria-hidden="true" />
             Hapus
           </Button>
-          <Button
-            block
-            variant="primary"
-            onClick={() => downloadBlob(attachment.blob, attachment.name)}
-          >
+          <Button block variant="primary" onClick={handleDownload} disabled={downloading}>
             <Download size={16} aria-hidden="true" />
-            Unduh
+            {downloading ? 'Mengunduh…' : 'Unduh'}
           </Button>
         </div>
       }
     >
       <div className="space-y-4 pb-2">
-        {kind === 'gambar' && url && (
+        {downloading && (
+          <div className="flex flex-col items-center rounded-btn border border-dashed border-line px-6 py-10 text-center">
+            <CloudDownload size={32} className="mb-3 animate-pulse text-ink-3" aria-hidden="true" />
+            <p className="text-[14px] font-semibold">Mengunduh dari cloud…</p>
+            <p className="mt-1 text-[13px] text-ink-2">File ini dibuat di perangkat lain.</p>
+          </div>
+        )}
+
+        {!downloading && kind === 'gambar' && url && (
           <img
             src={url}
             alt={attachment.name}
@@ -99,7 +135,7 @@ export function AttachmentPreview({ attachment, onClose }: Props) {
           />
         )}
 
-        {kind === 'pdf' && url && (
+        {!downloading && kind === 'pdf' && url && (
           <>
             <iframe
               src={url}
@@ -113,7 +149,7 @@ export function AttachmentPreview({ attachment, onClose }: Props) {
           </>
         )}
 
-        {kind !== 'gambar' && kind !== 'pdf' && (
+        {!downloading && kind !== 'gambar' && kind !== 'pdf' && (
           <div className="flex flex-col items-center rounded-btn border border-dashed border-line px-6 py-10 text-center">
             <FileText size={32} className="mb-3 text-ink-3" aria-hidden="true" />
             <p className="text-[14px] font-semibold">Tidak bisa dipratinjau di sini</p>

@@ -1,15 +1,30 @@
 # Semesta
 
 Ruang kuliah pribadi: mata kuliah, tugas, dan deadline dalam satu tempat.
-Seluruh data disimpan di browser perangkat ini — tidak ada server, akun, atau
-data yang dikirim ke mana pun.
+Data selalu tersimpan lokal di browser dulu (tetap jalan offline), dan
+kalau `.env` diisi, ikut tersinkron ke akun Supabase pribadi supaya sama
+di HP dan laptop.
 
-Status: **Tahap 0–4 selesai** — mata kuliah, tugas, catatan, lampiran file,
-dan backup. Dashboard "Hari Ini", agenda mingguan, dan focus timer belum dibuat.
+Status: **Tahap 0–4 selesai** (mata kuliah, tugas, catatan, lampiran file,
+backup) **+ integrasi Supabase** (login, sinkronisasi, migrasi data lokal).
+Dashboard "Hari Ini", agenda mingguan, dan focus timer belum dibuat.
 
 > **File lampiran tidak ikut dalam backup JSON.** Isi biner akan membuat berkas
 > backup membengkak, jadi yang disimpan hanya mata kuliah, tugas, dan catatan.
 > Untuk mengamankan lampiran, unduh filenya dari tiap catatan dan salin sendiri.
+
+## Sinkronisasi cloud (opsional)
+
+Tanpa `.env`, Semesta berjalan persis seperti versi lokal murni — tidak ada
+halaman login, tidak ada data yang dikirim ke mana pun.
+
+Untuk mengaktifkan sinkronisasi:
+1. Buat project di [supabase.com](https://supabase.com) (gratis)
+2. Jalankan seluruh isi [supabase/migrations/20260915000000_semesta_init.sql](supabase/migrations/20260915000000_semesta_init.sql) di SQL Editor
+3. Buat akun login sendiri lewat Authentication → Users (centang Auto Confirm User), lalu matikan Allow new users to sign up
+4. Salin `.env.example` jadi `.env`, isi `VITE_SUPABASE_URL` dan `VITE_SUPABASE_ANON_KEY` dari tombol Connect
+
+Detail lengkap tiap langkah ada di riwayat percakapan pembangunan fitur ini.
 
 ---
 
@@ -114,6 +129,23 @@ Data contoh sudah terisi otomatis saat pertama dibuka, jadi semuanya bisa langsu
 - [ ] Tab dan Enter bisa menjangkau semua kontrol, cincin fokus terlihat
 - [ ] Tombol Esc menutup bottom sheet
 
+**Sinkronisasi cloud** (hanya kalau `.env` sudah diisi)
+- [ ] Pengaturan menampilkan kartu "Akun & Sinkronisasi" dengan tombol Masuk
+- [ ] Login dengan akun yang dibuat di Supabase Dashboard → berhasil, redirect ke Pengaturan
+- [ ] Email/password salah → pesan error jelas, tidak nyasar ke halaman lain
+- [ ] Setelah login, muncul dialog "Pindahkan data lokal ke cloud?" dengan jumlah yang benar
+- [ ] Klik "Pindahkan ke cloud" → status berubah "Menyinkronkan…" lalu "Tersimpan"
+- [ ] Refresh halaman → tetap dalam keadaan login (sesi tersimpan)
+- [ ] Buka Supabase Dashboard → Table Editor → data yang tadi lokal sudah muncul di tabel
+- [ ] Login dari browser/perangkat KEDUA dengan akun yang sama → data yang sama muncul
+- [ ] Ubah satu tugas di perangkat A → tunggu ~3 detik → muncul juga di perangkat B setelah dibuka
+- [ ] Hapus tugas di satu perangkat → ikut hilang di perangkat lain setelah sync
+- [ ] Matikan Wi-Fi → status berubah "Offline"; app tetap bisa dipakai penuh dari cache lokal
+- [ ] Nyalakan lagi Wi-Fi → status kembali "Tersimpan" tanpa perlu refresh manual
+- [ ] Lampirkan file di perangkat A → di perangkat B muncul dengan label "Dari perangkat lain", terunduh otomatis saat dibuka
+- [ ] Keluar (logout) di Pengaturan → kembali ke tampilan "Belum masuk", data lokal tidak terhapus
+- [ ] "Hapus semua data" saat login → data ikut hilang dari cloud (cek di Table Editor)
+
 ---
 
 ## Struktur
@@ -128,20 +160,26 @@ src/
 │  ├─ courses/              Kartu, form, pemilih warna/ikon, editor jadwal
 │  ├─ tasks/                Baris tugas, form, filter, pengelompokan
 │  ├─ notes/                Editor TipTap, kartu, bagian File, pratinjau lampiran
-│  └─ data/                 Dialog import
+│  ├─ data/                 Dialog import
+│  └─ auth/                 Dialog "Pindahkan data lokal ke cloud"
 ├─ lib/
-│  ├─ db.ts                 Skema Dexie / IndexedDB
-│  ├─ repo.ts               Operasi tulis (create/update/delete + undo)
+│  ├─ db.ts                 Skema Dexie / IndexedDB (v3: + tabel bantu sync)
+│  ├─ repo.ts               Operasi tulis (create/update/delete + undo + tombstone)
 │  ├─ queries.ts            Hook baca reaktif (useLiveQuery)
 │  ├─ backup.ts             Export, validasi, import (catatan ikut, lampiran tidak)
 │  ├─ markdown.ts           Konversi dua arah TipTap ↔ Markdown/teks
 │  ├─ attachments.ts        Batas ukuran, jenis berkas, unduh Blob
 │  ├─ urgency.ts            Satu sumber kebenaran aturan deadline
 │  ├─ date.ts               Format tanggal Bahasa Indonesia
-│  ├─ seed.ts               Data contoh (id berawalan "demo-")
+│  ├─ seed.ts               Data contoh (id berawalan "demo-", tidak pernah disinkron)
+│  ├─ supabaseClient.ts     Klien Supabase — null kalau .env kosong
+│  ├─ authStore.ts          Status login (useSyncExternalStore, non-React lewat initAuth)
+│  ├─ cloudTypes.ts         Mapper baris cloud (snake_case) ↔ tipe lokal (camelCase)
+│  ├─ syncEngine.ts         Pull+push dua arah, tombstone, status sync
+│  ├─ migration.ts          Hitung & pindahkan data lokal ke cloud pertama kali
 │  ├─ colors.ts, theme.ts, settings.ts, id.ts, cn.ts
-├─ pages/                   Tugas, Catatan, Editor, Mata Kuliah, Detail, Pengaturan
-├─ styles/theme.css         Token warna, dark mode, animasi, gaya editor
+├─ pages/                   Tugas, Catatan, Editor, Mata Kuliah, Detail, Pengaturan, Login
+├─ styles/theme.css         Token warna, dark mode, color-scheme, animasi, gaya editor
 └─ types.ts                 Course, Task, ClassSlot, Note, Attachment
 ```
 
@@ -167,3 +205,21 @@ src/
 - **Konversi Markdown ditulis sendiri**, bukan memakai library, karena cakupannya
   persis sama dengan yang didukung editor. Sintaks di luar itu tetap masuk
   sebagai teks biasa, jadi tidak ada isi yang hilang saat impor.
+- **Sync: pull dulu baru push, per siklus.** Pull menarik baris yang berubah di
+  server (cursor = server_updated_at terbesar yang pernah diterima, bukan jam
+  perangkat sendiri — supaya tidak meleset kalau jam HP/laptop tidak presisi),
+  menang lewat updated_at kalau lebih baru dari lokal. Push lalu mengunggah
+  ulang seluruh data lokal aktif tanpa syarat — aman karena konflik sudah
+  selesai di tahap pull. Dipicu oleh hook Dexie (nyaris tiap tulis), event
+  online, dan login — di-debounce ~2,5 detik, bukan polling terus-menerus.
+- **Penghapusan lewat tombstone**, bukan soft-delete di tabel lokal. Baris yang
+  dihapus lokal meninggalkan jejak kecil di tabel `syncTombstones`; jejak itu
+  yang memberitahu server untuk menandai `deleted_at`. Undo (dalam ~6,5 detik)
+  menghapus jejaknya lagi sebelum sempat terkirim.
+- **Lampiran: metadata sync seperti tabel lain, isi file terpisah.** Blob
+  diunggah sekali ke Supabase Storage (path `<user_id>/<attachment_id>`).
+  Di perangkat lain, baris metadata muncul lebih dulu dengan blob placeholder
+  kosong — isinya baru diunduh saat pengguna membuka lampiran itu.
+- **`color-scheme` dideklarasikan eksplisit** di `:root`/`.dark` — tanpa ini,
+  beberapa browser bisa merender chrome native field password/email memakai
+  preferensi OS, bukan tema halaman (ditemukan saat menguji halaman Login).

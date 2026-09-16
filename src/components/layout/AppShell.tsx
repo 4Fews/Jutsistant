@@ -3,6 +3,7 @@ import { BottomNav } from './BottomNav'
 import { SidebarNav } from './SidebarNav'
 import { Toaster } from '@/components/ui/Toast'
 import { ConfirmHost } from '@/components/ui/Confirm'
+import { MigrationPrompt } from '@/features/auth/MigrationPrompt'
 
 export function AppShell() {
   return (
@@ -17,6 +18,7 @@ export function AppShell() {
       <BottomNav />
       <Toaster />
       <ConfirmHost />
+      <MigrationPrompt />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { db } from './db'
 import { newId } from './id'
 import { docToPlainText, emptyDoc } from './markdown'
+import { clearTombstone, queueTombstone } from './syncEngine'
 import type { Attachment, ClassSlot, Course, Note, NoteNode, Task } from '@/types'
 
 // ---------------------------------------------------------------- mata kuliah
@@ -49,6 +50,7 @@ export async function deleteCourse(id: string): Promise<DeletedCourse | null> {
     await db.tasks.where('courseId').equals(id).modify({ courseId: null })
     await db.courses.delete(id)
   })
+  await queueTombstone('courses', id)
   return { course, taskIds: affected }
 }
 
@@ -59,6 +61,7 @@ export async function restoreCourse(snap: DeletedCourse): Promise<void> {
       await db.tasks.where('id').anyOf(snap.taskIds).modify({ courseId: snap.course.id })
     }
   })
+  await clearTombstone('courses', snap.course.id)
 }
 
 export function newSlot(): ClassSlot {
@@ -129,11 +132,13 @@ export async function deleteTask(id: string): Promise<Task | null> {
   const task = await db.tasks.get(id)
   if (!task) return null
   await db.tasks.delete(id)
+  await queueTombstone('tasks', id)
   return task
 }
 
 export async function restoreTask(task: Task): Promise<void> {
   await db.tasks.put(task)
+  await clearTombstone('tasks', task.id)
 }
 
 // -------------------------------------------------------------------- catatan
@@ -205,6 +210,8 @@ export async function deleteNote(id: string, withAttachments: boolean): Promise<
     }
     await db.notes.delete(id)
   })
+  await queueTombstone('notes', id)
+  for (const a of attachments) await queueTombstone('attachments', a.id)
   return { note, attachments }
 }
 
@@ -213,6 +220,8 @@ export async function restoreNote(snap: DeletedNote): Promise<void> {
     await db.notes.put(snap.note)
     if (snap.attachments.length) await db.attachments.bulkPut(snap.attachments)
   })
+  await clearTombstone('notes', snap.note.id)
+  for (const a of snap.attachments) await clearTombstone('attachments', a.id)
 }
 
 // ------------------------------------------------------------------- lampiran
@@ -248,11 +257,13 @@ export async function deleteAttachment(id: string): Promise<Attachment | null> {
   const att = await db.attachments.get(id)
   if (!att) return null
   await db.attachments.delete(id)
+  await queueTombstone('attachments', id)
   return att
 }
 
 export async function restoreAttachment(att: Attachment): Promise<void> {
   await db.attachments.put(att)
+  await clearTombstone('attachments', att.id)
 }
 
 /** Catatan yang sudah dibuat dari sebuah tugas, kalau ada. */

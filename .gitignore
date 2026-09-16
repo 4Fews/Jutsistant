@@ -8,3 +8,8 @@ dev-dist
 
 # cache build TypeScript
 *.tsbuildinfo
+
+# kunci Supabase — file .env TIDAK PERNAH boleh ikut ke git
+.env
+.env.*
+!.env.example

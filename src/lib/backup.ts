@@ -5,6 +5,9 @@ import { COLOR_KEYS } from './colors'
 import { docToMarkdown, docToPlainText, textToDoc } from './markdown'
 import { downloadBlob } from './attachments'
 import { fmtDate } from './date'
+import { isDemo } from './id'
+import { isCloudConfigured } from './supabaseClient'
+import { queueTombstone } from './syncEngine'
 import type { ClassSlot, Course, Note, NoteNode, Task } from '@/types'
 
 /** v1 = mata kuliah + tugas. v2 menambahkan catatan. */
@@ -311,7 +314,25 @@ export async function importBackup(parsed: ParsedBackup, mode: ImportMode): Prom
   return result
 }
 
+/**
+ * Kalau sedang masuk, salinan di cloud ikut ditandai terhapus (lewat
+ * tombstone yang sama seperti penghapusan biasa) — supaya tombol ini
+ * benar-benar berarti "hapus semua", bukan cuma lokal yang nanti diam-diam
+ * terisi lagi oleh sync berikutnya.
+ */
 export async function wipeAllData(): Promise<void> {
+  if (isCloudConfigured) {
+    const [courses, tasks, notes, attachments] = await Promise.all([
+      db.courses.toArray(),
+      db.tasks.toArray(),
+      db.notes.toArray(),
+      db.attachments.toArray(),
+    ])
+    for (const c of courses) if (!isDemo(c.id)) await queueTombstone('courses', c.id)
+    for (const t of tasks) if (!isDemo(t.id)) await queueTombstone('tasks', t.id)
+    for (const n of notes) if (!isDemo(n.id)) await queueTombstone('notes', n.id)
+    for (const a of attachments) await queueTombstone('attachments', a.id)
+  }
   await db.transaction('rw', db.courses, db.tasks, db.notes, db.attachments, async () => {
     await Promise.all([db.courses.clear(), db.tasks.clear(), db.notes.clear(), db.attachments.clear()])
   })

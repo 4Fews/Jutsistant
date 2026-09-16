@@ -1,11 +1,35 @@
 import Dexie, { type Table } from 'dexie'
 import type { Attachment, Course, Note, Task } from '@/types'
 
+/** Tabel yang ikut disinkronkan ke Supabase. */
+export type SyncTable = 'courses' | 'tasks' | 'notes' | 'attachments'
+
+/**
+ * Ditulis saat sebuah baris dihapus lokal, supaya sync engine tahu perlu
+ * menandai deleted_at di cloud juga. Dihapus lagi kalau penghapusannya
+ * diurungkan (restore) sebelum sempat dikirim.
+ */
+export interface SyncTombstone {
+  /** `${table}:${recordId}` — supaya unik lintas tabel tanpa index majemuk */
+  key: string
+  table: SyncTable
+  recordId: string
+  createdAt: number
+}
+
+/** Menandai id lampiran yang blob-nya sudah pasti terunggah ke Storage,
+ *  supaya tidak diupload ulang setiap siklus sync. */
+export interface UploadedBlob {
+  attachmentId: string
+}
+
 class SemestaDB extends Dexie {
   courses!: Table<Course, string>
   tasks!: Table<Task, string>
   notes!: Table<Note, string>
   attachments!: Table<Attachment, string>
+  syncTombstones!: Table<SyncTombstone, string>
+  uploadedBlobs!: Table<UploadedBlob, string>
 
   constructor() {
     super('semesta')
@@ -21,6 +45,16 @@ class SemestaDB extends Dexie {
       tasks: 'id, courseId, dueAt, status, priority',
       notes: 'id, courseId, taskId, updatedAt, pinned',
       attachments: 'id, noteId, createdAt',
+    })
+    // v3 menambah tabel bantu untuk sinkronisasi cloud. Tidak menyentuh
+    // data yang sudah ada di tabel lain.
+    this.version(3).stores({
+      courses: 'id, order, archived',
+      tasks: 'id, courseId, dueAt, status, priority',
+      notes: 'id, courseId, taskId, updatedAt, pinned',
+      attachments: 'id, noteId, createdAt',
+      syncTombstones: 'key, table',
+      uploadedBlobs: 'attachmentId',
     })
   }
 }

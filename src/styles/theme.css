@@ -9,6 +9,10 @@
    elemen grafis seperti titik warna mata kuliah >= 3:1).
    --------------------------------------------------------------- */
 :root {
+  /* Tanpa ini, chrome native beberapa kontrol form (mis. field password)
+     bisa mengikuti preferensi gelap/terang OS alih-alih tema halaman. */
+  color-scheme: light;
+
   --canvas: #fbf7f2;
   --surface: #ffffff;
   --surface-2: #f5efe7;
@@ -48,6 +52,8 @@
 }
 
 .dark {
+  color-scheme: dark;
+
   --canvas: #16130f;
   --surface: #201c17;
   --surface-2: #2a251e;

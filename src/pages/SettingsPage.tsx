@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
+  Cloud,
+  CloudOff,
   Download,
   HardDrive,
   Monitor,
@@ -35,6 +38,9 @@ import { clearDemoData, insertDemoData } from '@/lib/seed'
 import { useSettings } from '@/lib/settings'
 import { useTheme } from '@/lib/theme'
 import type { Theme } from '@/lib/theme'
+import { isCloudConfigured } from '@/lib/supabaseClient'
+import { signOut, useAuth } from '@/lib/authStore'
+import { useSyncStatus } from '@/lib/syncEngine'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -50,6 +56,9 @@ function Card({ children }: { children: React.ReactNode }) {
 }
 
 export function SettingsPage() {
+  const navigate = useNavigate()
+  const auth = useAuth()
+  const sync = useSyncStatus()
   const [theme, setTheme] = useTheme()
   const settings = useSettings()
   const courses = useCourses(true)
@@ -90,7 +99,7 @@ export function SettingsPage() {
   async function wipe() {
     const ok = await confirmDialog({
       title: 'Hapus SEMUA data?',
-      message: `${counts.courses} mata kuliah, ${counts.tasks} tugas, ${counts.notes} catatan, dan semua file lampiran akan hilang permanen. Tidak bisa diurungkan. Sebaiknya export dulu.`,
+      message: `${counts.courses} mata kuliah, ${counts.tasks} tugas, ${counts.notes} catatan, dan semua file lampiran akan hilang permanen${auth.status === 'signed-in' ? ' — termasuk salinannya di cloud' : ''}. Tidak bisa diurungkan. Sebaiknya export dulu.`,
       confirmText: 'Hapus semua',
       danger: true,
       typeToConfirm: 'HAPUS',
@@ -110,6 +119,73 @@ export function SettingsPage() {
   return (
     <>
       <PageHeader title="Pengaturan" />
+
+      {isCloudConfigured && (
+        <Section title="Akun & Sinkronisasi">
+          <Card>
+            {auth.status === 'loading' ? (
+              <p className="text-[13px] text-ink-2">Memeriksa sesi…</p>
+            ) : auth.status === 'signed-in' ? (
+              <div className="flex items-start gap-3">
+                <Cloud size={18} className="mt-0.5 shrink-0 text-done" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate font-bold">{auth.user?.email}</h3>
+                  <p className="mt-0.5 flex items-center gap-1.5 text-[13px] font-semibold">
+                    {sync.status === 'syncing' && (
+                      <span className="flex items-center gap-1.5 text-primary">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                        Menyinkronkan…
+                      </span>
+                    )}
+                    {sync.status === 'idle' && (
+                      <span className="flex items-center gap-1.5 text-done">
+                        <span className="h-1.5 w-1.5 rounded-full bg-done" />
+                        Tersimpan{sync.lastSyncAt ? ` · ${fmtAgo(sync.lastSyncAt)}` : ''}
+                      </span>
+                    )}
+                    {sync.status === 'offline' && (
+                      <span className="flex items-center gap-1.5 text-ink-3">
+                        <span className="h-1.5 w-1.5 rounded-full bg-ink-3" />
+                        Offline — akan menyinkron lagi saat online
+                      </span>
+                    )}
+                    {sync.status === 'error' && (
+                      <span className="flex items-center gap-1.5 text-soon">
+                        <span className="h-1.5 w-1.5 rounded-full bg-soon" />
+                        Gagal menyinkronkan, akan dicoba lagi
+                      </span>
+                    )}
+                  </p>
+                  <Button
+                    size="sm"
+                    className="mt-3"
+                    onClick={async () => {
+                      await signOut()
+                      toast('Berhasil keluar')
+                    }}
+                  >
+                    Keluar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3">
+                <CloudOff size={18} className="mt-0.5 shrink-0 text-ink-3" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold">Belum masuk</h3>
+                  <p className="mt-0.5 text-[13px] text-ink-2">
+                    Data Anda masih hanya di perangkat ini. Masuk untuk menyinkronkannya ke HP dan laptop
+                    sekaligus.
+                  </p>
+                  <Button size="sm" variant="primary" className="mt-3" onClick={() => navigate('/masuk')}>
+                    Masuk
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+        </Section>
+      )}
 
       <Section title="Tampilan">
         <Card>
@@ -351,9 +427,20 @@ export function SettingsPage() {
       <Section title="Tentang">
         <Card>
           <p className="text-[13px] leading-relaxed text-ink-2">
-            <b className="text-ink">Semesta</b> menyimpan seluruh data di browser perangkat ini saja. Tidak ada
-            server, tidak ada akun, tidak ada data yang dikirim ke mana pun. Karena itu data tidak ikut berpindah
-            antar perangkat — gunakan Export dan Import untuk memindahkannya.
+            {isCloudConfigured ? (
+              <>
+                <b className="text-ink">Semesta</b> menyimpan data di perangkat ini, dan — kalau Anda masuk —
+                juga tersinkron ke akun Supabase pribadi Anda supaya bisa dipakai di HP dan laptop sekaligus.
+                Tidak ada pendaftaran publik; hanya akun yang dibuat sendiri lewat Supabase Dashboard yang
+                bisa masuk.
+              </>
+            ) : (
+              <>
+                <b className="text-ink">Semesta</b> menyimpan seluruh data di browser perangkat ini saja. Tidak
+                ada server, tidak ada akun, tidak ada data yang dikirim ke mana pun. Karena itu data tidak ikut
+                berpindah antar perangkat — gunakan Export dan Import untuk memindahkannya.
+              </>
+            )}
           </p>
         </Card>
       </Section>

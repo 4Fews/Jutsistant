@@ -5,10 +5,14 @@ export interface Settings {
   lastBackupAt: number | null
   /** data contoh sudah pernah dibuat (agar tidak muncul lagi setelah dihapus) */
   seeded: boolean
+  /** cursor sinkronisasi cloud — tarik perubahan server sejak waktu ini */
+  lastSyncAt: number | null
+  /** migrasi data lokal ke cloud sudah pernah ditawarkan/selesai untuk user ini */
+  migratedUserId: string | null
 }
 
 const KEY = 'semesta.settings'
-const DEFAULTS: Settings = { lastBackupAt: null, seeded: false }
+const DEFAULTS: Settings = { lastBackupAt: null, seeded: false, lastSyncAt: null, migratedUserId: null }
 
 function read(): Settings {
   try {

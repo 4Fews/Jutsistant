@@ -33,6 +33,11 @@ export function setTheme(t: Theme): void {
   listeners.forEach((l) => l())
 }
 
+/** Akses non-hook — dipakai syncEngine.ts untuk membaca/menulis tema saat sinkronisasi. */
+export function getTheme(): Theme {
+  return current
+}
+
 export function useTheme(): [Theme, (t: Theme) => void] {
   const t = useSyncExternalStore(
     (cb) => {
